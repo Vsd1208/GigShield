@@ -1,19 +1,24 @@
 import { useState } from 'react'
-import { Shield, ArrowLeft, Home, FileText, Award, Clock, Settings, Bell, ChevronRight, CloudRain, Wind, Thermometer, AlertTriangle, MapPin, Zap, TrendingUp, IndianRupee, Gift, Users, Star, CheckCircle2, XCircle, Phone, Eye, EyeOff, ChevronDown, Download, RefreshCw, Info, Flame, Target, Trophy, History, UserPlus, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Shield, ArrowLeft, Home, FileText, Award, Clock, Settings, Bell, ChevronRight, CloudRain, Wind, Thermometer, AlertTriangle, MapPin, Zap, TrendingUp, IndianRupee, Gift, Users, Star, CheckCircle2, XCircle, Phone, Eye, EyeOff, ChevronDown, Download, RefreshCw, Info, Flame, Target, Trophy, History, UserPlus, ToggleLeft, ToggleRight, MessageCircle } from 'lucide-react'
 
 const tabs = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'policy', label: 'Policy', icon: FileText },
   { id: 'points', label: 'Points', icon: Award },
   { id: 'history', label: 'History', icon: Clock },
+  { id: 'gigbot', label: 'GigBot', icon: MessageCircle },
   { id: 'profile', label: 'Profile', icon: Settings },
 ]
 
 export default function WorkerApp({ onBack }) {
   const [screen, setScreen] = useState('splash')
   const [activeTab, setActiveTab] = useState('home')
+  const [zoneStatus, setZoneStatus] = useState('safe') // safe | watch | disrupted
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [onboardStep, setOnboardStep] = useState(0)
+  const [mobile, setMobile] = useState('')
+  const [otp, setOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState(1)
   const [showPurchase, setShowPurchase] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
@@ -61,6 +66,41 @@ export default function WorkerApp({ onBack }) {
   // Onboarding overlay
   if (showOnboarding) {
     const steps = [
+      {
+        title: 'Verify Your Mobile',
+        content: (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">Enter your mobile number to receive an OTP and secure your account.</p>
+            <div className="space-y-2">
+              <input
+                value={mobile}
+                onChange={e => setMobile(e.target.value)}
+                type="tel"
+                placeholder="+91 98765 43210"
+                className="w-full rounded-2xl border border-dark-border bg-dark-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <button
+                onClick={() => setOtpSent(true)}
+                className="w-full py-3 gradient-primary rounded-2xl text-white font-semibold text-sm"
+              >
+                Send OTP
+              </button>
+              {otpSent && (
+                <div className="space-y-2">
+                  <input
+                    value={otp}
+                    onChange={e => setOtp(e.target.value)}
+                    type="text"
+                    placeholder="Enter OTP"
+                    className="w-full rounded-2xl border border-dark-border bg-dark-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <p className="text-xs text-text-secondary">OTP is simulated in demo mode. Enter any 4 digits.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ),
+      },
       {
         title: 'Select Your Platform',
         content: (
@@ -168,12 +208,21 @@ export default function WorkerApp({ onBack }) {
                 {steps[onboardStep].content}
               </div>
 
-              <button onClick={() => {
-                if (onboardStep < steps.length - 1) setOnboardStep(onboardStep + 1)
-                else { setShowOnboarding(false); setShowPurchase(true) }
-              }} className="mt-4 w-full py-4 gradient-primary rounded-2xl text-white font-bold text-lg shadow-xl shadow-primary/30 active:scale-[0.98] transition-transform">
-                {onboardStep < steps.length - 1 ? 'Continue' : 'Choose Your Plan →'}
-              </button>
+              {(() => {
+                const canContinue = onboardStep !== 0 || (mobile.trim().length > 0 && otp.trim().length > 0)
+                return (
+                  <button
+                    onClick={() => {
+                      if (!canContinue) return
+                      if (onboardStep < steps.length - 1) setOnboardStep(onboardStep + 1)
+                      else { setShowOnboarding(false); setShowPurchase(true) }
+                    }}
+                    disabled={!canContinue}
+                    className={`mt-4 w-full py-4 rounded-2xl text-white font-bold text-lg shadow-xl shadow-primary/30 active:scale-[0.98] transition-transform ${canContinue ? 'gradient-primary' : 'bg-dark-border text-text-muted cursor-not-allowed'}`}>
+                    {onboardStep < steps.length - 1 ? 'Continue' : 'Choose Your Plan →'}
+                  </button>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -211,6 +260,32 @@ export default function WorkerApp({ onBack }) {
                   <p className="text-sm font-semibold text-text-primary">Zone Risk Score: 0.74</p>
                   <p className="text-xs text-text-secondary">Premium adjusted +9% for HSR Layout</p>
                 </div>
+              </div>
+
+              {/* Premium Price Forecast */}
+              <div className="glass rounded-2xl p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-text-primary">7-Day Premium Forecast</p>
+                    <p className="text-xs text-text-secondary">Plan your purchase ahead of price changes.</p>
+                  </div>
+                  <span className="text-xs text-success font-semibold">Best today!</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {[
+                    { day: 'Thu', price: 108, trend: '↗' },
+                    { day: 'Fri', price: 112, trend: '↗' },
+                    { day: 'Sat', price: 127, trend: '↗' },
+                    { day: 'Sun', price: 119, trend: '↘' },
+                  ].map((d, i) => (
+                    <div key={i} className="p-2 rounded-xl bg-dark-surface">
+                      <p className="text-[10px] text-text-muted">{d.day}</p>
+                      <p className="text-sm font-bold text-text-primary">₹{d.price}</p>
+                      <p className="text-[10px] text-text-secondary">{d.trend}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-text-muted mt-2">Prices are estimates based on zone risk and seasonal patterns.</p>
               </div>
 
               {/* Plans */}
@@ -294,10 +369,11 @@ export default function WorkerApp({ onBack }) {
   // Main App
   const renderTab = () => {
     switch (activeTab) {
-      case 'home': return <HomeTab setShowNotif={setShowNotif} showNotif={showNotif} setShowPurchase={setShowPurchase} />
+      case 'home': return <HomeTab setShowNotif={setShowNotif} showNotif={showNotif} setShowPurchase={setShowPurchase} setAutoRenew={setAutoRenew} zoneStatus={zoneStatus} setZoneStatus={setZoneStatus} />
       case 'policy': return <PolicyTab autoRenew={autoRenew} setAutoRenew={setAutoRenew} />
       case 'points': return <PointsTab />
       case 'history': return <HistoryTab />
+      case 'gigbot': return <GigBotTab />
       case 'profile': return <ProfileTab onBack={onBack} />
       default: return null
     }
@@ -334,7 +410,41 @@ export default function WorkerApp({ onBack }) {
 }
 
 // HOME TAB
-function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
+function HomeTab({ setShowNotif, showNotif, setShowPurchase, setAutoRenew, zoneStatus, setZoneStatus }) {
+  const statusData = {
+    safe: {
+      label: 'ZONE SAFE',
+      sub: 'HSR Layout • Zone HSR-01',
+      icon: CheckCircle2,
+      dot: 'bg-success',
+      text: 'text-success',
+      border: 'border-success/30',
+      bg: 'bg-success/10',
+      bannerText: 'All clear — keep working, you are protected',
+    },
+    watch: {
+      label: 'ZONE WATCH',
+      sub: 'HSR Layout • Zone HSR-01',
+      icon: AlertTriangle,
+      dot: 'bg-warning',
+      text: 'text-warning',
+      border: 'border-warning/30',
+      bg: 'bg-warning/10',
+      bannerText: 'Rain approaching threshold — stay ready.',
+    },
+    disrupted: {
+      label: 'ZONE DISRUPTED',
+      sub: 'HSR Layout • Zone HSR-01',
+      icon: CloudRain,
+      dot: 'bg-danger',
+      text: 'text-danger',
+      border: 'border-danger/30',
+      bg: 'bg-danger/10',
+      bannerText: 'Disruption detected — claim being processed.',
+    },
+  }
+  const current = statusData[zoneStatus] || statusData.safe
+
   return (
     <div className="space-y-4 mt-2">
       {/* Header */}
@@ -374,21 +484,21 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
       )}
 
       {/* Zone Status */}
-      <div className="bg-success/10 border border-success/30 rounded-2xl p-4">
+      <div className={`rounded-2xl p-4 border ${current.bg} ${current.border}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-3 h-3 rounded-full bg-success" />
-              <div className="absolute inset-0 w-3 h-3 rounded-full bg-success pulse-ring" />
+              <div className={`w-3 h-3 rounded-full ${current.dot}`} />
+              <div className={`absolute inset-0 w-3 h-3 rounded-full ${current.dot} pulse-ring`} />
             </div>
             <div>
-              <p className="text-sm font-bold text-success">ZONE SAFE</p>
-              <p className="text-xs text-text-secondary">HSR Layout • Zone HSR-01</p>
+              <p className={`text-sm font-bold ${current.text}`}>{current.label}</p>
+              <p className="text-xs text-text-secondary">{current.sub}</p>
             </div>
           </div>
           <ChevronRight size={16} className="text-text-muted" />
         </div>
-        <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-success/20">
+        <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
           <div className="text-center">
             <CloudRain size={14} className="text-text-muted mx-auto mb-1" />
             <p className="text-xs text-text-muted">Rain</p>
@@ -405,6 +515,20 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
             <p className="text-sm font-bold text-text-primary">142</p>
           </div>
         </div>
+      </div>
+
+      {/* Status Controls (demo) */}
+      <div className="flex gap-2">
+        {['safe', 'watch', 'disrupted'].map(status => (
+          <button key={status} onClick={() => setZoneStatus(status)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${zoneStatus === status ? 'bg-primary text-white' : 'bg-dark-card border border-dark-border text-text-secondary'}`}>
+            {status === 'safe' ? 'Safe' : status === 'watch' ? 'Watch' : 'Disrupted'}
+          </button>
+        ))}
+      </div>
+
+      <div className={`rounded-2xl p-4 border ${current.bg} ${current.border}`}>
+        <p className={`text-sm font-semibold ${current.text}`}>{current.bannerText}</p>
       </div>
 
       {/* Active Policy Card */}
@@ -507,7 +631,7 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
             <p className="text-xs text-text-secondary mt-1">
               34 active Pro Shield workers received ₹600 each today. Don't miss your next protection event.
             </p>
-            <button className="mt-2 px-3 py-1.5 text-xs font-semibold gradient-primary text-white rounded-lg">
+            <button onClick={() => setAutoRenew(true)} className="mt-2 px-3 py-1.5 text-xs font-semibold gradient-primary text-white rounded-lg">
               Enable Auto-Renew
             </button>
           </div>
@@ -522,6 +646,17 @@ function PolicyTab({ autoRenew, setAutoRenew }) {
   return (
     <div className="space-y-4 mt-2">
       <h2 className="text-xl font-bold text-text-primary">My Policy</h2>
+
+      {/* Renewal Reminder */}
+      <div className="bg-warning/10 border border-warning/20 rounded-2xl p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-warning">Policy expires in 2 days</p>
+            <p className="text-xs text-text-secondary">Renew now to lock in this week's premium and avoid a coverage gap.</p>
+          </div>
+          <button className="px-3 py-1.5 rounded-lg bg-warning text-dark font-semibold text-xs">Renew Now</button>
+        </div>
+      </div>
 
       {/* Policy Certificate */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/30">
@@ -623,6 +758,36 @@ function PolicyTab({ autoRenew, setAutoRenew }) {
               <div className="h-1 rounded-full bg-dark-border overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${r.value}%`, background: r.color }} />
               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Premium Forecast */}
+      <div className="glass rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wider">Premium Price Forecast</p>
+            <p className="text-sm font-bold text-text-primary">Next 7 days</p>
+          </div>
+          <span className="text-xs text-text-secondary">Updated 2 mins ago</span>
+        </div>
+        <div className="grid grid-cols-7 gap-2 text-center">
+          {[
+            { day: 'Mon', price: 103, trend: -2 },
+            { day: 'Tue', price: 105, trend: +1 },
+            { day: 'Wed', price: 108, trend: +3 },
+            { day: 'Thu', price: 108, trend: 0 },
+            { day: 'Fri', price: 110, trend: +2 },
+            { day: 'Sat', price: 107, trend: -3 },
+            { day: 'Sun', price: 104, trend: -3 },
+          ].map((f, i) => (
+            <div key={i} className="rounded-xl p-2 bg-dark-surface">
+              <p className="text-[10px] text-text-muted mb-1">{f.day}</p>
+              <p className="text-sm font-bold text-text-primary">₹{f.price}</p>
+              <p className={`text-[10px] font-semibold ${f.trend > 0 ? 'text-success' : f.trend < 0 ? 'text-danger' : 'text-text-secondary'}`}>
+                {f.trend > 0 ? `+${f.trend}` : f.trend < 0 ? `${f.trend}` : '±0'}%
+              </p>
             </div>
           ))}
         </div>
@@ -959,6 +1124,78 @@ function HistoryTab() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// GIGBOT TAB
+function GigBotTab() {
+  const [messages, setMessages] = useState([
+    { from: 'bot', text: 'Namaste! I am GigBot. How can I help you today?' },
+  ])
+  const [input, setInput] = useState('')
+
+  const sendMessage = () => {
+    const query = input.trim()
+    if (!query) return
+
+    setMessages(prev => [...prev, { from: 'user', text: query }])
+    setInput('')
+
+    setTimeout(() => {
+      const lower = query.toLowerCase()
+      let response = 'Sorry, I did not understand that. Try asking about claim status, payouts, or zone alerts.'
+
+      if (lower.includes('claim')) {
+        if (lower.includes('reject')) {
+          response = 'Your claim was rejected because GPS showed you were outside the zone at trigger time. Please make sure location is on and you are inside the zone when a trigger fires.'
+        } else if (lower.includes('status')) {
+          response = 'Your claim is currently being reviewed. For speed, ensure you are active in the app and within your zone when the trigger happens.'
+        } else {
+          response = 'Claims are processed automatically when a trigger is sustained. You will get ₹600 credited in under 60 seconds if validated.'
+        }
+      } else if (lower.includes('renew')) {
+        response = 'Your policy auto-renews by default. You can toggle Auto-Renew in the Policy tab to turn it off.'
+      } else if (lower.includes('premium')) {
+        response = 'Premium is updated weekly based on zone risk. Check the price forecast section on the policy screen to see the next 7 days.'
+      }
+
+      setMessages(prev => [...prev, { from: 'bot', text: response }])
+    }, 600)
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-sm font-semibold text-text-primary">GigBot</p>
+          <p className="text-xs text-text-muted">Ask anything about your policy or claims.</p>
+        </div>
+        <div className="text-xs text-text-secondary">Type in Hindi or English</div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-3 p-2">
+        {messages.map((m, i) => (
+          <div key={i} className={`max-w-[80%] ${m.from === 'user' ? 'ml-auto text-right' : 'mr-auto text-left'}`}>
+            <div className={`inline-block px-4 py-2 rounded-2xl ${m.from === 'user' ? 'bg-primary/20 text-text-primary' : 'bg-dark-card border border-dark-border text-text-secondary'}`}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') sendMessage() }}
+          placeholder="Ask GigBot..."
+          className="flex-1 rounded-2xl border border-dark-border bg-dark-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+        <button onClick={sendMessage} className="px-4 py-3 rounded-2xl bg-primary text-white text-sm font-semibold">
+          Send
+        </button>
       </div>
     </div>
   )
