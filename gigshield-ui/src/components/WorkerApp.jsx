@@ -98,7 +98,312 @@ export default function WorkerApp({ onBack }) {
   const [showNotif, setShowNotif] = useState(false)
   const [autoRenew, setAutoRenew] = useState(true)
   const [showGigBot, setShowGigBot] = useState(false)
+
+  // Registration state
+  const [isRegistered, setIsRegistered] = useState(false)
+  const [registrationStep, setRegistrationStep] = useState('mobile')
+  const [mobile, setMobile] = useState('')
+  const [otp, setOtp] = useState('')
+  const [profile, setProfile] = useState({
+    name: '',
+    platform: 'Zepto',
+    avgDailyHours: 8,
+    shiftPattern: 'Full Day',
+    upiId: ''
+  })
+  const [location, setLocation] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
   const { isDark, toggleTheme } = useTheme()
+
+  // Check if user is registered (in real app, check localStorage or API)
+  useEffect(() => {
+    const registered = localStorage.getItem('gigshield_registered')
+    if (registered) {
+      setIsRegistered(true)
+      setScreen('app')
+    }
+  }, [])
+
+  // Get user location for zone detection
+  const getLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          })
+        },
+        (error) => {
+          console.error('Location error:', error)
+          // Use default Bangalore location for demo
+          setLocation({ lat: 12.9716, lng: 77.5946 })
+        }
+      )
+    }
+  }
+
+  // API calls
+  const sendOtp = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch('/api/auth/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setRegistrationStep('otp')
+      } else {
+        setError(data.error || 'Failed to send OTP')
+      }
+    } catch (err) {
+      setError('Network error. Please try again.')
+    }
+    setLoading(false)
+  }
+
+  const verifyOtp = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile, otp })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        if (data.isNewUser) {
+          setRegistrationStep('profile')
+          getLocation()
+        } else {
+          // Existing user - go to app
+          localStorage.setItem('gigshield_registered', 'true')
+          setIsRegistered(true)
+          setScreen('app')
+        }
+      } else {
+        setError(data.error || 'Invalid OTP')
+      }
+    } catch (err) {
+      setError('Network error. Please try again.')
+    }
+    setLoading(false)
+  }
+
+  const completeRegistration = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch('/api/workers/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile,
+          ...profile,
+          lat: location?.lat,
+          lng: location?.lng
+        })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        localStorage.setItem('gigshield_registered', 'true')
+        setIsRegistered(true)
+        setScreen('app')
+        setShowOnboarding(true)
+        setOnboardStep(0)
+      } else {
+        setError(data.error || 'Registration failed')
+      }
+    } catch (err) {
+      setError('Network error. Please try again.')
+    }
+    setLoading(false)
+  }
+
+  // Registration screens
+  if (!isRegistered && screen === 'register') {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="relative w-full max-w-[375px]">
+          <div className="absolute inset-0 gradient-primary rounded-[50px] blur-[80px] opacity-20" />
+          <div className="phone-frame relative z-10">
+            <div className="h-full flex flex-col items-center justify-center p-8 relative overflow-hidden">
+              <div className="absolute inset-0 pattern-dots opacity-40" />
+              <div className="relative z-10 w-full">
+
+                {/* Mobile Number Step */}
+                {registrationStep === 'mobile' && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6">
+                      <Phone size={32} className="text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-text-primary mb-2">Welcome to GigShield</h2>
+                    <p className="text-text-secondary text-sm mb-8">Enter your mobile number to get started</p>
+
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type="tel"
+                          placeholder="Enter mobile number"
+                          value={mobile}
+                          onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          className="w-full pl-12 pr-4 py-3 bg-dark-card border border-dark-border rounded-2xl text-text-primary placeholder-text-muted focus:border-primary focus:outline-none"
+                        />
+                      </div>
+
+                      {error && (
+                        <p className="text-danger text-sm">{error}</p>
+                      )}
+
+                      <button
+                        onClick={sendOtp}
+                        disabled={mobile.length !== 10 || loading}
+                        className="w-full py-3.5 gradient-primary rounded-2xl text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Sending...' : 'Send OTP'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* OTP Verification Step */}
+                {registrationStep === 'otp' && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6">
+                      <Shield size={32} className="text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-text-primary mb-2">Verify Your Number</h2>
+                    <p className="text-text-secondary text-sm mb-2">We sent an OTP to +91 {mobile}</p>
+                    <p className="text-text-muted text-xs mb-8">Enter the 4-digit code</p>
+
+                    <div className="space-y-4">
+                      <input
+                        type="text"
+                        placeholder="0000"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="w-full text-center text-2xl font-bold tracking-[0.5em] py-4 bg-dark-card border border-dark-border rounded-2xl text-text-primary placeholder-text-muted focus:border-primary focus:outline-none"
+                      />
+
+                      {error && (
+                        <p className="text-danger text-sm">{error}</p>
+                      )}
+
+                      <button
+                        onClick={verifyOtp}
+                        disabled={otp.length !== 4 || loading}
+                        className="w-full py-3.5 gradient-primary rounded-2xl text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Verifying...' : 'Verify OTP'}
+                      </button>
+
+                      <button
+                        onClick={() => setRegistrationStep('mobile')}
+                        className="text-primary text-sm hover:underline"
+                      >
+                        Change number
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Profile Setup Step */}
+                {registrationStep === 'profile' && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6">
+                      <UserPlus size={32} className="text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-text-primary mb-2">Complete Your Profile</h2>
+                    <p className="text-text-secondary text-sm mb-8">Help us personalize your coverage</p>
+
+                    <div className="space-y-4">
+                      <input
+                        type="text"
+                        placeholder="Full Name"
+                        value={profile.name}
+                        onChange={(e) => setProfile({...profile, name: e.target.value})}
+                        className="w-full px-4 py-3 bg-dark-card border border-dark-border rounded-2xl text-text-primary placeholder-text-muted focus:border-primary focus:outline-none"
+                      />
+
+                      <select
+                        value={profile.platform}
+                        onChange={(e) => setProfile({...profile, platform: e.target.value})}
+                        className="w-full px-4 py-3 bg-dark-card border border-dark-border rounded-2xl text-text-primary focus:border-primary focus:outline-none"
+                      >
+                        <option value="Zepto">Zepto</option>
+                        <option value="Blinkit">Blinkit</option>
+                        <option value="Swiggy Instamart">Swiggy Instamart</option>
+                      </select>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="number"
+                          placeholder="Daily Hours"
+                          value={profile.avgDailyHours}
+                          onChange={(e) => setProfile({...profile, avgDailyHours: parseInt(e.target.value) || 8})}
+                          className="px-4 py-3 bg-dark-card border border-dark-border rounded-2xl text-text-primary placeholder-text-muted focus:border-primary focus:outline-none"
+                        />
+                        <select
+                          value={profile.shiftPattern}
+                          onChange={(e) => setProfile({...profile, shiftPattern: e.target.value})}
+                          className="px-4 py-3 bg-dark-card border border-dark-border rounded-2xl text-text-primary focus:border-primary focus:outline-none"
+                        >
+                          <option value="Full Day">Full Day</option>
+                          <option value="Morning">Morning</option>
+                          <option value="Evening">Evening</option>
+                        </select>
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="UPI ID (optional)"
+                        value={profile.upiId}
+                        onChange={(e) => setProfile({...profile, upiId: e.target.value})}
+                        className="w-full px-4 py-3 bg-dark-card border border-dark-border rounded-2xl text-text-primary placeholder-text-muted focus:border-primary focus:outline-none"
+                      />
+
+                      {location && (
+                        <div className="glass rounded-2xl p-4 text-left">
+                          <div className="flex items-center gap-2 mb-2">
+                            <MapPin size={16} className="text-success" />
+                            <span className="text-sm font-semibold text-text-primary">Zone Detected</span>
+                          </div>
+                          <p className="text-xs text-text-muted">Your location has been detected for zone assignment</p>
+                        </div>
+                      )}
+
+                      {error && (
+                        <p className="text-danger text-sm">{error}</p>
+                      )}
+
+                      <button
+                        onClick={completeRegistration}
+                        disabled={!profile.name || loading}
+                        className="w-full py-3.5 gradient-primary rounded-2xl text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Creating Account...' : 'Complete Registration'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button onClick={onBack} className="absolute top-4 left-4 text-text-muted hover:text-text-secondary">
+                  <ArrowLeft size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (screen === 'splash') {
     return (
@@ -117,11 +422,11 @@ export default function WorkerApp({ onBack }) {
                 <h1 className="text-3xl font-extrabold text-text-primary mb-1">GigShield</h1>
                 <p className="text-text-secondary text-sm mb-1">Parametric Income Protection</p>
                 <p className="text-text-muted text-[11px] mb-10 tracking-wide">for Q-Commerce Delivery Partners</p>
-                <button onClick={() => { setScreen('app'); setShowOnboarding(true); setOnboardStep(0) }}
+                <button onClick={() => { setScreen('register'); setRegistrationStep('mobile') }}
                         className="w-full py-3.5 gradient-primary rounded-2xl text-white font-bold text-base shadow-xl shadow-primary/30 active:scale-[0.98] transition-transform mb-3">
                   Get Started
                 </button>
-                <button onClick={() => setScreen('app')}
+                <button onClick={() => { setScreen('register'); setRegistrationStep('mobile') }}
                         className="w-full py-3.5 bg-dark-card border border-dark-border rounded-2xl text-text-primary font-semibold text-base active:scale-[0.98] transition-transform mb-6">
                   I Have an Account
                 </button>
