@@ -65,7 +65,7 @@ const forecastData = [
   { zone: 'BTM Layout', days: [{ day: 'Mon', risk: 0.7, label: 'High' }, { day: 'Tue', risk: 0.85, label: 'High' }, { day: 'Wed', risk: 0.9, label: 'Critical' }, { day: 'Thu', risk: 0.6, label: 'Med' }, { day: 'Fri', risk: 0.5, label: 'Med' }, { day: 'Sat', risk: 0.3, label: 'Low' }, { day: 'Sun', risk: 0.35, label: 'Low' }] },
 ]
 
-const COLORS = ['#6C5CE7', '#00D2D3', '#FF6B6B', '#FDCB6E', '#00B894']
+const COLORS = ['#a45b33', '#8a6a52', '#bf5b45', '#c38a2e', '#bc8750']
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload) return null
@@ -200,8 +200,8 @@ function OverviewPanel() {
               <XAxis dataKey="week" tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} />
               <YAxis tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="premiums" fill="#6C5CE7" radius={[6, 6, 0, 0]} name="Premiums" />
-              <Bar dataKey="payouts" fill="#00D2D3" radius={[6, 6, 0, 0]} name="Payouts" />
+              <Bar dataKey="premiums" fill="#a45b33" radius={[6, 6, 0, 0]} name="Premiums" />
+              <Bar dataKey="payouts" fill="#8a6a52" radius={[6, 6, 0, 0]} name="Payouts" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -217,7 +217,7 @@ function OverviewPanel() {
                   { name: 'Watch', value: 1 },
                   { name: 'Disrupted', value: 1 },
                 ]} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
-                  {[{ color: '#00B894' }, { color: '#FDCB6E' }, { color: '#FF6B6B' }].map((entry, index) => (
+                  {[{ color: '#bc8750' }, { color: '#c38a2e' }, { color: '#bf5b45' }].map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -306,7 +306,7 @@ function MapPanel() {
 
     // Add zone markers with circles
     zones.forEach(zone => {
-      const color = zone.status === 'safe' ? '#00B894' : zone.status === 'watch' ? '#FDCB6E' : '#FF6B6B'
+      const color = zone.status === 'safe' ? '#bc8750' : zone.status === 'watch' ? '#c38a2e' : '#bf5b45'
 
       // Zone radius circle
       L.circle([zone.lat, zone.lng], {
@@ -534,7 +534,7 @@ function AnalyticsPanel() {
               <XAxis dataKey="month" tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} />
               <YAxis tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="payouts" fill="#00D2D3" radius={[6, 6, 0, 0]} name="Payouts" />
+              <Bar dataKey="payouts" fill="#8a6a52" radius={[6, 6, 0, 0]} name="Payouts" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -548,8 +548,8 @@ function AnalyticsPanel() {
             { zone: 'BTM Layout', payouts: 46800, percent: 40, color: '#FF6B6B' },
             { zone: 'HSR Layout', payouts: 20400, percent: 30, color: '#6C5CE7' },
             { zone: 'Koramangala', payouts: 18600, percent: 18, color: '#FDCB6E' },
-            { zone: 'Indiranagar', payouts: 6000, percent: 8, color: '#00D2D3' },
-            { zone: 'Whitefield', payouts: 2400, percent: 4, color: '#00B894' },
+            { zone: 'Indiranagar', payouts: 6000, percent: 8, color: '#8a6a52' },
+            { zone: 'Whitefield', payouts: 2400, percent: 4, color: '#bc8750' },
           ].map((z, i) => (
             <div key={i}>
               <div className="flex justify-between mb-1">
@@ -574,7 +574,7 @@ function AnalyticsPanel() {
             <YAxis tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} />
             <Tooltip content={<CustomTooltip />} />
             <Line type="monotone" dataKey="premiums" stroke="#6C5CE7" strokeWidth={2} dot={{ r: 4, fill: '#6C5CE7' }} name="Premiums" />
-            <Line type="monotone" dataKey="payouts" stroke="#00D2D3" strokeWidth={2} dot={{ r: 4, fill: '#00D2D3' }} name="Payouts" />
+            <Line type="monotone" dataKey="payouts" stroke="#8a6a52" strokeWidth={2} dot={{ r: 4, fill: '#8a6a52' }} name="Payouts" />
             <Legend formatter={(value) => <span className="text-text-secondary text-xs">{value}</span>} />
           </LineChart>
         </ResponsiveContainer>
@@ -840,7 +840,7 @@ function LoyaltyPanel() {
     { name: 'Starter', value: 42, emoji: '🥉', color: '#7C72A0' },
     { name: 'Reliable', value: 58, emoji: '🥈', color: '#6C5CE7' },
     { name: 'Veteran', value: 31, emoji: '🥇', color: '#FDCB6E' },
-    { name: 'Champion', value: 11, emoji: '💎', color: '#00D2D3' },
+    { name: 'Champion', value: 11, emoji: '💎', color: '#8a6a52' },
   ]
 
   return (
@@ -952,10 +952,10 @@ function AntiSpoofingPanel() {
 
   const validationLayers = [
     { name: 'GPS Velocity & Trajectory', weight: '20%', checks: 'Road-snapping, jitter analysis, teleportation detection', icon: MapPin, color: '#6C5CE7', passRate: 94 },
-    { name: 'Device Integrity', weight: '25%', checks: 'Cell tower, Wi-Fi BSSID, IP geolocation cross-check', icon: Wifi, color: '#00D2D3', passRate: 97 },
+    { name: 'Device Integrity', weight: '25%', checks: 'Cell tower, Wi-Fi BSSID, IP geolocation cross-check', icon: Wifi, color: '#8a6a52', passRate: 97 },
     { name: 'Behavioral Biometrics', weight: '15%', checks: 'Shift patterns, accelerometer, delivery cadence', icon: Fingerprint, color: '#FDCB6E', passRate: 91 },
     { name: 'Network Coordination', weight: '30%', checks: 'Temporal clustering, social graph, device fingerprint clusters', icon: Network, color: '#FF6B6B', passRate: 99 },
-    { name: 'Environmental Consistency', weight: '10%', checks: 'Ambient light, barometric pressure, signal quality', icon: Radio, color: '#00B894', passRate: 88 },
+    { name: 'Environmental Consistency', weight: '10%', checks: 'Ambient light, barometric pressure, signal quality', icon: Radio, color: '#bc8750', passRate: 88 },
   ]
 
   return (
@@ -1111,8 +1111,8 @@ function AntiSpoofingPanel() {
                      style={{ left: p.x, top: p.y }} />
               ))}
               <svg className="absolute inset-0 w-full h-full">
-                <line x1="25" y1="15" x2="65" y2="10" stroke="#00B894" strokeWidth="0.5" strokeOpacity="0.3" />
-                <line x1="55" y1="50" x2="90" y2="65" stroke="#00B894" strokeWidth="0.5" strokeOpacity="0.3" />
+                <line x1="25" y1="15" x2="65" y2="10" stroke="#bc8750" strokeWidth="0.5" strokeOpacity="0.3" />
+                <line x1="55" y1="50" x2="90" y2="65" stroke="#bc8750" strokeWidth="0.5" strokeOpacity="0.3" />
               </svg>
             </div>
           </div>

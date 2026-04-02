@@ -1284,7 +1284,7 @@ function PolicyTab({ autoRenew, setAutoRenew }) {
           {[
             { label: 'Rainfall forecast', pct: 40, color: '#6C5CE7' },
             { label: 'AQI trend', pct: 25, color: '#FDCB6E' },
-            { label: 'Historical risk', pct: 20, color: '#00D2D3' },
+            { label: 'Historical risk', pct: 20, color: '#8a6a52' },
             { label: 'Traffic + news', pct: 15, color: '#FF6B6B' },
           ].map((d, i) => (
             <div key={i}>
@@ -1310,7 +1310,7 @@ function PolicyTab({ autoRenew, setAutoRenew }) {
                     fill="none" stroke="rgba(45,37,80,1)" strokeWidth="3" />
               <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none" stroke="url(#g1)" strokeWidth="3" strokeDasharray="74, 100" strokeLinecap="round" />
-              <defs><linearGradient id="g1"><stop offset="0%" stopColor="#6C5CE7" /><stop offset="100%" stopColor="#00D2D3" /></linearGradient></defs>
+              <defs><linearGradient id="g1"><stop offset="0%" stopColor="#a45b33" /><stop offset="100%" stopColor="#8a6a52" /></linearGradient></defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-base font-bold text-text-primary">0.74</span>
@@ -1327,7 +1327,7 @@ function PolicyTab({ autoRenew, setAutoRenew }) {
             { label: 'Rainfall', value: 72, color: '#6C5CE7' },
             { label: 'AQI', value: 58, color: '#FDCB6E' },
             { label: 'Flood Risk', value: 45, color: '#FF6B6B' },
-            { label: 'Seasonal', value: 85, color: '#00D2D3' },
+            { label: 'Seasonal', value: 85, color: '#8a6a52' },
           ].map((r, i) => (
             <div key={i}>
               <div className="flex justify-between mb-0.5">
@@ -1661,7 +1661,7 @@ function SavingsSubTab() {
             <svg className="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
               <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(45,37,80,0.4)" strokeWidth="2.5" />
               <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="url(#protScore)" strokeWidth="2.5" strokeDasharray="92, 100" strokeLinecap="round" />
-              <defs><linearGradient id="protScore"><stop offset="0%" stopColor="#00B894" /><stop offset="100%" stopColor="#00D2D3" /></linearGradient></defs>
+              <defs><linearGradient id="protScore"><stop offset="0%" stopColor="#bc8750" /><stop offset="100%" stopColor="#8a6a52" /></linearGradient></defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-[15px] font-bold text-success">92</span>
@@ -1740,7 +1740,7 @@ function GraphSubTab() {
               <YAxis tick={{ fill: '#7C72A0', fontSize: 9 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="premiums" fill="#FF6B6B" radius={[4, 4, 0, 0]} name="Premiums" barSize={16} />
-              <Bar dataKey="payouts" fill="#00B894" radius={[4, 4, 0, 0]} name="Payouts" barSize={16} />
+              <Bar dataKey="payouts" fill="#bc8750" radius={[4, 4, 0, 0]} name="Payouts" barSize={16} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1754,15 +1754,15 @@ function GraphSubTab() {
             <AreaChart data={lifetimeData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="netGradGraph" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00B894" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#00B894" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#bc8750" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#bc8750" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,37,80,0.2)" vertical={false} />
               <XAxis dataKey="month" tick={{ fill: '#7C72A0', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#7C72A0', fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="net" stroke="#00B894" fill="url(#netGradGraph)" strokeWidth={2} dot={{ r: 3, fill: '#00B894', strokeWidth: 0 }} name="Net Savings" />
+              <Area type="monotone" dataKey="net" stroke="#bc8750" fill="url(#netGradGraph)" strokeWidth={2} dot={{ r: 3, fill: '#bc8750', strokeWidth: 0 }} name="Net Savings" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
