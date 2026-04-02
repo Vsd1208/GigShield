@@ -3,7 +3,7 @@ import { handleRequest } from "./router.js";
 import { startSchedulers } from "./services/scheduler.js";
 import { sendJson } from "./utils/http.js";
 
-const port = Number(process.env.PORT || 4000);
+const requestedPort = Number(process.env.PORT || 4000);
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -16,7 +16,21 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
+let activePort = requestedPort;
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    activePort += 1;
+    console.warn(`Port ${activePort - 1} is busy. Retrying on ${activePort}.`);
+    server.listen(activePort);
+    return;
+  }
+
+  console.error("Failed to start GigShield backend:", error);
+  process.exitCode = 1;
+});
+
+server.listen(activePort, () => {
   startSchedulers();
-  console.log(`GigShield backend listening on http://localhost:${port}`);
+  console.log(`GigShield backend listening on http://localhost:${activePort}`);
 });

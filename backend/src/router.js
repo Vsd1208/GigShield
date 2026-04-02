@@ -55,6 +55,81 @@ function routeMatch(pathname, pattern) {
   return params;
 }
 
+function renderHomePage() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GigShield Backend</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #f4f7fb 0%, #dfe9f3 100%);
+        color: #123;
+      }
+
+      main {
+        width: min(680px, calc(100vw - 32px));
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 20px 60px rgba(18, 35, 51, 0.12);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 2rem;
+      }
+
+      p {
+        margin: 0 0 20px;
+        line-height: 1.6;
+      }
+
+      .links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      a {
+        text-decoration: none;
+        color: white;
+        background: #1f6feb;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+
+      code {
+        background: #eef3f8;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>GigShield Backend Is Running</h1>
+      <p>The API server is up. Use <code>/health</code> for a health check and <code>/api</code> endpoints for backend data.</p>
+      <div class="links">
+        <a href="/health">Open Health Check</a>
+        <a href="/api/plans">Open Sample API</a>
+      </div>
+    </main>
+  </body>
+</html>`;
+}
+
 export async function handleRequest(req, res) {
   const url = new URL(req.url, "http://localhost");
 
@@ -64,6 +139,10 @@ export async function handleRequest(req, res) {
   }
 
   const routes = [
+    ["GET", "/", async () => {
+      sendText(res, 200, renderHomePage(), "text/html; charset=utf-8");
+      return null;
+    }],
     ["GET", "/health", async () => ({ ok: true, service: "gigshield-backend", now: new Date().toISOString() })],
     ["GET", "/api/plans", async () => ({ plans: listPlans() })],
     ["POST", "/api/auth/request-otp", async () => issueOtp((await readJson(req)).mobile)],
