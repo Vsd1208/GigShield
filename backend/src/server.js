@@ -11,7 +11,7 @@ const dbState = await initializeDatabaseBackedStore();
 if (dbState.enabled) {
   console.log("GigShield database persistence enabled.");
 } else {
-  console.log("GigShield running with in-memory seed data. Set DATABASE_URL to enable Postgres persistence.");
+  console.log("GigShield running with in-memory seed data. Set MONGODB_URI to enable MongoDB persistence.");
 }
 
 const server = http.createServer(async (req, res) => {

@@ -1,5 +1,7 @@
-import { Pool } from "pg";
+import { MongoClient } from "mongodb";
 import { store } from "./store.js";
+
+const DATABASE_NAME = process.env.MONGODB_DB || process.env.DATABASE_NAME || "gigshield";
 
 const COLLECTIONS = [
   { name: "planCatalog", kind: "array", key: (item) => item.id },
@@ -24,17 +26,27 @@ const COLLECTIONS = [
   { name: "otps", kind: "map", key: () => "singleton" }
 ];
 
-let pool = null;
+let client = null;
+let database = null;
 let enabled = false;
 let lastPersistAt = null;
 
-function createPool() {
-  if (!process.env.DATABASE_URL) return null;
-  const sslRequired = process.env.PGSSLMODE === "require" || process.env.DATABASE_SSL === "true";
-  return new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: sslRequired ? { rejectUnauthorized: false } : undefined
-  });
+function getMongoUri() {
+  return process.env.MONGODB_URI || process.env.DATABASE_URL || "";
+}
+
+function createClient() {
+  const uri = getMongoUri();
+  if (!uri) return null;
+  return new MongoClient(uri);
+}
+
+function collectionName(name) {
+  return `gigshield_${name}`;
+}
+
+function getCollection(config) {
+  return database.collection(collectionName(config.name));
 }
 
 function serializeCollection(config) {
@@ -61,69 +73,67 @@ function hydrateCollection(config, data) {
   store[config.name] = data ?? {};
 }
 
-async function ensureSchema(client) {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS gigshield_records (
-      collection TEXT NOT NULL,
-      record_id TEXT NOT NULL,
-      data JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (collection, record_id)
-    );
-  `);
-  await client.query(`
-    CREATE INDEX IF NOT EXISTS idx_gigshield_records_collection
-      ON gigshield_records (collection);
-  `);
+function withoutMongoId(document) {
+  if (!document) return document;
+  const { _id, ...rest } = document;
+  return rest;
 }
 
-async function hasPersistedRecords(client) {
-  const result = await client.query("SELECT 1 FROM gigshield_records LIMIT 1");
-  return Boolean(result.rowCount);
+async function ensureIndexes() {
+  for (const config of COLLECTIONS) {
+    await getCollection(config).createIndex({ recordId: 1 }, { unique: true });
+  }
 }
 
-async function loadCollection(client, config) {
+async function hasPersistedRecords() {
+  for (const config of COLLECTIONS) {
+    if (await getCollection(config).estimatedDocumentCount()) return true;
+  }
+  return false;
+}
+
+async function loadCollection(config) {
+  const collection = getCollection(config);
   if (config.kind === "array") {
-    const result = await client.query(
-      "SELECT data FROM gigshield_records WHERE collection = $1 ORDER BY updated_at ASC",
-      [config.name]
-    );
-    hydrateCollection(config, result.rows.map((row) => row.data));
+    const documents = await collection.find({}).sort({ order: 1, updatedAt: 1 }).toArray();
+    hydrateCollection(config, documents.map((document) => withoutMongoId(document.data)));
     return;
   }
 
-  const result = await client.query(
-    "SELECT data FROM gigshield_records WHERE collection = $1 AND record_id = $2",
-    [config.name, "singleton"]
-  );
-  if (result.rows[0]) hydrateCollection(config, result.rows[0].data);
+  const document = await collection.findOne({ recordId: "singleton" });
+  if (document) hydrateCollection(config, withoutMongoId(document.data));
 }
 
-async function saveCollection(client, config) {
+async function saveCollection(config) {
+  const collection = getCollection(config);
   const serialized = serializeCollection(config);
-  await client.query("DELETE FROM gigshield_records WHERE collection = $1", [config.name]);
+  await collection.deleteMany({});
 
   if (config.kind === "array") {
-    for (let index = 0; index < serialized.length; index += 1) {
-      const item = serialized[index];
-      await client.query(
-        `INSERT INTO gigshield_records (collection, record_id, data, updated_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (collection, record_id)
-         DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
-        [config.name, String(config.key(item, index)), item]
-      );
-    }
+    if (!serialized.length) return;
+    await collection.insertMany(serialized.map((item, index) => ({
+      recordId: String(config.key(item, index)),
+      order: index,
+      data: item,
+      updatedAt: new Date()
+    })));
     return;
   }
 
-  await client.query(
-    `INSERT INTO gigshield_records (collection, record_id, data, updated_at)
-     VALUES ($1, $2, $3, NOW())
-     ON CONFLICT (collection, record_id)
-     DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
-    [config.name, "singleton", serialized]
-  );
+  await collection.insertOne({
+    recordId: "singleton",
+    data: serialized,
+    updatedAt: new Date()
+  });
+}
+
+async function connectDatabase() {
+  client = createClient();
+  if (!client) return false;
+  await client.connect();
+  database = client.db(DATABASE_NAME);
+  await ensureIndexes();
+  return true;
 }
 
 export function isDatabaseEnabled() {
@@ -133,92 +143,71 @@ export function isDatabaseEnabled() {
 export function getDatabaseState() {
   return {
     enabled,
+    provider: enabled ? "mongodb" : "memory",
+    database: enabled ? DATABASE_NAME : null,
     lastPersistAt
   };
 }
 
 export async function initializeDatabaseBackedStore() {
-  pool = createPool();
-  if (!pool) {
+  if (!(await connectDatabase())) {
     enabled = false;
     return getDatabaseState();
   }
 
-  const client = await pool.connect();
-  try {
-    await ensureSchema(client);
-    if (await hasPersistedRecords(client)) {
-      for (const config of COLLECTIONS) {
-        await loadCollection(client, config);
-      }
-    } else {
-      for (const config of COLLECTIONS) {
-        await saveCollection(client, config);
-      }
-      lastPersistAt = new Date().toISOString();
+  if (await hasPersistedRecords()) {
+    for (const config of COLLECTIONS) {
+      await loadCollection(config);
     }
-    enabled = true;
-    return getDatabaseState();
-  } finally {
-    client.release();
+  } else {
+    for (const config of COLLECTIONS) {
+      await saveCollection(config);
+    }
+    lastPersistAt = new Date().toISOString();
   }
+
+  enabled = true;
+  return getDatabaseState();
 }
 
 export async function persistStore() {
-  if (!enabled || !pool) return getDatabaseState();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    for (const config of COLLECTIONS) {
-      await saveCollection(client, config);
-    }
-    await client.query("COMMIT");
-    lastPersistAt = new Date().toISOString();
-    return getDatabaseState();
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
+  if (!enabled || !database) return getDatabaseState();
+  for (const config of COLLECTIONS) {
+    await saveCollection(config);
   }
+  lastPersistAt = new Date().toISOString();
+  return getDatabaseState();
 }
 
 export async function seedDatabaseFromStaticData({ reset = false } = {}) {
-  pool = createPool();
-  if (!pool) {
-    throw new Error("DATABASE_URL is required to seed Postgres");
+  if (!database && !(await connectDatabase())) {
+    throw new Error("MONGODB_URI or DATABASE_URL is required to seed MongoDB");
   }
 
-  const client = await pool.connect();
-  try {
-    await ensureSchema(client);
-    await client.query("BEGIN");
-    if (reset) {
-      await client.query("DELETE FROM gigshield_records");
-    }
+  if (reset) {
     for (const config of COLLECTIONS) {
-      await saveCollection(client, config);
+      await getCollection(config).deleteMany({});
     }
-    await client.query("COMMIT");
-    enabled = true;
-    lastPersistAt = new Date().toISOString();
-    return {
-      ...getDatabaseState(),
-      collections: COLLECTIONS.map((config) => ({
-        name: config.name,
-        records: config.kind === "array" ? store[config.name].length : 1
-      }))
-    };
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
   }
+
+  for (const config of COLLECTIONS) {
+    await saveCollection(config);
+  }
+
+  enabled = true;
+  lastPersistAt = new Date().toISOString();
+  return {
+    ...getDatabaseState(),
+    collections: COLLECTIONS.map((config) => ({
+      name: collectionName(config.name),
+      records: config.kind === "array" ? store[config.name].length : 1
+    }))
+  };
 }
 
 export async function closeDatabase() {
-  if (pool) await pool.end();
-  pool = null;
+  if (client) await client.close();
+  client = null;
+  database = null;
   enabled = false;
 }

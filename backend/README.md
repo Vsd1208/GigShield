@@ -13,7 +13,7 @@ Backend scaffold for the GigShield demo described in the root README.
 - Zone monitor and fraud evaluation utilities
 - Mocked integrations for weather, AQI, payouts, SMS, push, and GigBot model calls
 - Background schedulers for trigger polling and reminder dispatch
-- Optional Postgres persistence for runtime policies, payments, claims, workers, fraud cases, pool votes, referrals, notifications, and seed/demo data
+- Optional MongoDB/NoSQL persistence for runtime policies, payments, claims, workers, fraud cases, pool votes, referrals, notifications, and seed/demo data
 
 ## Run
 
@@ -25,19 +25,19 @@ The server starts on `http://localhost:4000` by default.
 
 ## Config
 
-Copy `.env.example` if you want to override the port or enable Postgres.
+Copy `.env.example` if you want to override the port or enable MongoDB.
 
 ```powershell
 PORT=4000
-DATABASE_URL=postgres://user:password@host:5432/gigshield
-PGSSLMODE=require
+MONGODB_URI=mongodb+srv://user:password@cluster.example.mongodb.net
+MONGODB_DB=gigshield
 RAZORPAY_KEY_ID=rzp_test_xxx
 RAZORPAY_KEY_SECRET=xxx
 ```
 
-If `DATABASE_URL` is omitted, the backend uses the in-memory seed store. If `DATABASE_URL` is set, startup creates the table in `db/schema.sql`, seeds it on first run, hydrates the app store on later runs, and persists changes after mutating API requests and scheduled jobs.
+If `MONGODB_URI` is omitted, the backend uses the in-memory seed store. If `MONGODB_URI` is set, startup creates document collections, seeds them on first run, hydrates the app store on later runs, and persists changes after mutating API requests and scheduled jobs.
 
-Hosted Postgres providers such as Neon, Supabase, Render, and Railway usually require SSL. Set `PGSSLMODE=require` or `DATABASE_SSL=true` for those environments.
+`DATABASE_URL` is also accepted as a MongoDB URI for hosting platforms that expose a generic database URL variable.
 
 ## Static Demo Data
 
@@ -48,7 +48,7 @@ The static demo dataset lives in `src/data/seed.js`. It includes:
 - Demo workers, active/lapsed policies, Razorpay test payment records, and UPI mandates
 - Claims, disruption events, fraud-review cases, live feed entries, points ledger, referrals, reminders, notifications, and collective pool motions
 
-When `DATABASE_URL` is set, the backend copies that static data into Postgres on the first startup. You can also seed manually:
+When `MONGODB_URI` is set, the backend copies that static data into MongoDB on the first startup. You can also seed manually:
 
 ```powershell
 npm run db:seed

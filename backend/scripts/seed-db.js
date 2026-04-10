@@ -10,7 +10,7 @@ try {
     console.log(`- ${collection.name}: ${collection.records}`);
   }
 } catch (error) {
-  console.error("Failed to seed GigShield database:", error.message);
+  console.error("Failed to seed GigShield MongoDB database:", error.message);
   process.exitCode = 1;
 } finally {
   await closeDatabase();
