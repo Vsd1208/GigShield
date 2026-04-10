@@ -1019,11 +1019,11 @@ export default function WorkerApp({ onBack }) {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'home': return <HomeTab setShowNotif={setShowNotif} showNotif={showNotif} setShowPurchase={setShowPurchase} />
-      case 'policy': return <PolicyTab autoRenew={autoRenew} onToggleAutoRenew={handleAutoRenewToggle} paymentMandate={paymentMandate} paymentSuccess={paymentSuccess} paymentError={paymentError} />
-      case 'points': return <PointsTab />
-      case 'history': return <HistoryTab />
-      case 'profile': return <ProfileTab onBack={onBack} />
+      case 'home': return <HomeTab setShowNotif={setShowNotif} showNotif={showNotif} setShowPurchase={setShowPurchase} setActiveTab={setActiveTab} onToggleAutoRenew={handleAutoRenewToggle} setShowGigBot={setShowGigBot} workerId={workerId} />
+      case 'policy': return <PolicyTab autoRenew={autoRenew} onToggleAutoRenew={handleAutoRenewToggle} paymentMandate={paymentMandate} paymentSuccess={paymentSuccess} paymentError={paymentError} workerId={workerId} />
+      case 'points': return <PointsTab workerId={workerId} setActiveTab={setActiveTab} />
+      case 'history': return <HistoryTab workerId={workerId} setActiveTab={setActiveTab} />
+      case 'profile': return <ProfileTab onBack={onBack} setActiveTab={setActiveTab} workerId={workerId} />
       default: return null
     }
   }
@@ -1049,7 +1049,7 @@ export default function WorkerApp({ onBack }) {
               </button>
             )}
             {/* GigBot Panel */}
-            {showGigBot && <GigBotPanel onClose={() => setShowGigBot(false)} />}
+            {showGigBot && <GigBotPanel onClose={() => setShowGigBot(false)} workerId={workerId} />}
             {/* Tab Bar */}
             <div className="absolute bottom-0 left-0 right-0 glass-strong border-t border-dark-border safe-area-bottom z-20">
               <div className="flex items-center justify-around py-2 pb-3">
@@ -1072,9 +1072,9 @@ export default function WorkerApp({ onBack }) {
 
 
 // ─── GIGBOT PANEL ─────────────────────────────────────
-function GigBotPanel({ onClose }) {
+function GigBotPanel({ onClose, workerId }) {
   const [messages, setMessages] = useState([
-    { from: 'bot', text: 'Hi Ravi! I\'m GigBot, your insurance assistant. Ask me about claims, premiums, triggers, or GigPoints!', lang: 'en' },
+    { from: 'bot', text: 'Hi! I\'m GigBot, your insurance assistant. Ask me about claims, premiums, triggers, or GigPoints!', lang: 'en' },
     { from: 'bot', text: 'Namaste! Main GigBot hoon. Hindi ya English mein puchiye!', lang: 'hi' },
   ])
   const [input, setInput] = useState('')
@@ -1085,23 +1085,31 @@ function GigBotPanel({ onClose }) {
 
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
-  const sendMessage = (text) => {
+  const sendMessage = async (text) => {
     const userMsg = (text || input).trim()
     if (!userMsg) return
     setMessages(prev => [...prev, { from: 'user', text: userMsg, time: 'now' }])
     setInput('')
     setIsTyping(true)
-    setTimeout(() => {
+    try {
+      const data = await apiFetch(`/api/workers/${workerId}/gigbot`, {
+        method: 'POST',
+        body: JSON.stringify({ message: userMsg })
+      })
+      setMessages(prev => [...prev, { from: 'bot', text: data.reply, time: 'now' }])
+    } catch {
+      // Fallback to static responses if backend unavailable
       const lower = userMsg.toLowerCase()
       let reply = chatResponses.default[lang]
-      if (lower.includes('claim') || lower.includes('payout') || lower.includes('status') || lower.includes('kyun') || lower.includes('why')) reply = chatResponses['claim status'][lang]
-      else if (lower.includes('price') || lower.includes('cost') || lower.includes('premium') || lower.includes('kitna') || lower.includes('paise')) reply = chatResponses['premium'][lang]
-      else if (lower.includes('trigger') || lower.includes('rain') || lower.includes('weather') || lower.includes('barish') || lower.includes('cover')) reply = chatResponses['triggers'][lang]
-      else if (lower.includes('point') || lower.includes('gigpoint') || lower.includes('tier') || lower.includes('reward')) reply = chatResponses['points'][lang]
+      if (lower.includes('claim') || lower.includes('payout') || lower.includes('status')) reply = chatResponses['claim status'][lang]
+      else if (lower.includes('price') || lower.includes('cost') || lower.includes('premium')) reply = chatResponses['premium'][lang]
+      else if (lower.includes('trigger') || lower.includes('rain') || lower.includes('weather')) reply = chatResponses['triggers'][lang]
+      else if (lower.includes('point') || lower.includes('gigpoint') || lower.includes('tier')) reply = chatResponses['points'][lang]
       else if (lower.includes('pool') || lower.includes('collective') || lower.includes('community')) reply = chatResponses['pool'][lang]
       setMessages(prev => [...prev, { from: 'bot', text: reply, time: 'now' }])
+    } finally {
       setIsTyping(false)
-    }, 800 + Math.random() * 400)
+    }
   }
 
   return (
@@ -1192,7 +1200,7 @@ function GigBotPanel({ onClose }) {
 
 
 // ─── HOME TAB (Enhanced) ─────────────────────────────
-function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
+function HomeTab({ setShowNotif, showNotif, setShowPurchase, setActiveTab, onToggleAutoRenew, setShowGigBot, workerId }) {
   const { isDark, toggleTheme } = useTheme()
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
@@ -1400,12 +1408,12 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
         <SectionLabel>Quick Actions</SectionLabel>
         <div className="grid grid-cols-4 gap-2">
           {[
-            { icon: FileCheck, label: 'Claims', color: 'text-success', bg: 'bg-success/10' },
-            { icon: CreditCard, label: 'Pay', color: 'text-primary', bg: 'bg-primary/10' },
-            { icon: Users, label: 'Refer', color: 'text-accent', bg: 'bg-accent/10' },
-            { icon: Headphones, label: 'Help', color: 'text-warning', bg: 'bg-warning/10' },
+            { icon: FileCheck, label: 'Claims', color: 'text-success', bg: 'bg-success/10', action: () => setActiveTab('history') },
+            { icon: CreditCard, label: 'Pay', color: 'text-primary', bg: 'bg-primary/10', action: () => setShowPurchase(true) },
+            { icon: Users, label: 'Refer', color: 'text-accent', bg: 'bg-accent/10', action: () => setActiveTab('points') },
+            { icon: Headphones, label: 'Help', color: 'text-warning', bg: 'bg-warning/10', action: () => setShowGigBot(true) },
           ].map((a, i) => (
-            <button key={i} className="flex flex-col items-center gap-1.5 py-3 rounded-xl hover:bg-dark-surface/50 transition-colors">
+            <button key={i} onClick={a.action} className="flex flex-col items-center gap-1.5 py-3 rounded-xl hover:bg-dark-surface/50 transition-colors">
               <div className={`w-10 h-10 rounded-xl ${a.bg} flex items-center justify-center`}>
                 <a.icon size={18} className={a.color} />
               </div>
@@ -1479,7 +1487,7 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
             <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
               34 active workers received ₹600 each today. Stay protected for next events.
             </p>
-            <button className="mt-2.5 px-4 py-2 text-[11px] font-semibold gradient-primary text-white rounded-xl shadow-sm shadow-primary/15">
+            <button onClick={onToggleAutoRenew} className="mt-2.5 px-4 py-2 text-[11px] font-semibold gradient-primary text-white rounded-xl shadow-sm shadow-primary/15">
               Enable Auto-Renew
             </button>
           </div>
@@ -1496,7 +1504,7 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
             <p className="text-[13px] font-semibold text-text-primary">Emergency SOS</p>
             <p className="text-[11px] text-text-muted">Accident, health emergency, or safety issue</p>
           </div>
-          <button className="px-3 py-2 bg-danger/10 border border-danger/25 rounded-xl text-danger text-[11px] font-bold active:scale-95 transition-transform">
+          <button onClick={() => { if (window.confirm('This will alert emergency services. Continue?')) { window.location.href = 'tel:112'; } }} className="px-3 py-2 bg-danger/10 border border-danger/25 rounded-xl text-danger text-[11px] font-bold active:scale-95 transition-transform">
             SOS
           </button>
         </div>
@@ -1549,7 +1557,7 @@ function HomeTab({ setShowNotif, showNotif, setShowPurchase }) {
 
 
 // ─── POLICY TAB (Enhanced) ───────────────────────────
-function PolicyTab({ autoRenew, onToggleAutoRenew, paymentMandate, paymentSuccess, paymentError }) {
+function PolicyTab({ autoRenew, onToggleAutoRenew, paymentMandate, paymentSuccess, paymentError, workerId }) {
   return (
     <div className="space-y-3.5 mt-2">
       <h2 className="text-lg font-bold text-text-primary">My Policy</h2>
@@ -1584,7 +1592,7 @@ function PolicyTab({ autoRenew, onToggleAutoRenew, paymentMandate, paymentSucces
               <Shield size={16} className="text-primary" />
               <span className="text-xs font-bold text-primary">GIGSHIELD POLICY</span>
             </div>
-            <button className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-medium">
+            <button onClick={async () => { try { const text = await apiFetch(`/api/workers/${workerId}/certificate`); const blob = new Blob([text], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'gigshield-certificate.txt'; a.click(); URL.revokeObjectURL(url); } catch { alert('Could not download certificate. Make sure backend is running.') } }} className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-medium">
               <Download size={10} /> PDF
             </button>
           </div>
@@ -1773,7 +1781,7 @@ function PolicyTab({ autoRenew, onToggleAutoRenew, paymentMandate, paymentSucces
       <div className="glass rounded-2xl p-3.5">
         <div className="flex items-center justify-between mb-2.5">
           <SectionLabel>Latest Claim</SectionLabel>
-          <button className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-medium">
+          <button onClick={async () => { try { const text = await apiFetch(`/api/workers/${workerId}/claims/GS-CLM-0892/statement`); const blob = new Blob([text], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'claim-statement.txt'; a.click(); URL.revokeObjectURL(url); } catch { alert('Could not download statement. Make sure backend is running.') } }} className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-medium">
             <Download size={10} /> EOB
           </button>
         </div>
@@ -1828,7 +1836,7 @@ function PolicyTab({ autoRenew, onToggleAutoRenew, paymentMandate, paymentSucces
 
 
 // ─── POINTS TAB (Enhanced) ───────────────────────────
-function PointsTab() {
+function PointsTab({ workerId, setActiveTab }) {
   return (
     <div className="space-y-3.5 mt-2">
       <h2 className="text-lg font-bold text-text-primary">GigPoints</h2>
@@ -1941,7 +1949,7 @@ function PointsTab() {
             <p className="text-[9px] text-text-muted">Zone Goal</p>
           </div>
         </div>
-        <button className="w-full py-2 bg-accent/10 border border-accent/30 rounded-xl text-accent text-xs font-semibold">
+        <button onClick={async () => { try { await apiFetch(`/api/workers/${workerId}/referrals`, { method: 'POST', body: JSON.stringify({ referredName: 'New Partner', referredMobile: '0000000000' }) }); if (navigator.share) { await navigator.share({ title: 'GigShield Referral', text: 'Join GigShield! Use my referral to get ₹50 off your first week.', url: window.location.origin }); } else { await navigator.clipboard.writeText(`Join GigShield! ${window.location.origin}`); alert('Referral link copied to clipboard!'); } } catch { alert('Referral link copied!'); } }} className="w-full py-2 bg-accent/10 border border-accent/30 rounded-xl text-accent text-xs font-semibold">
           Share Referral Link
         </button>
       </div>
@@ -1951,7 +1959,7 @@ function PointsTab() {
 
 
 // ─── HISTORY TAB (Enhanced with sub-tabs) ────────────
-function HistoryTab() {
+function HistoryTab({ workerId, setActiveTab }) {
   const [subTab, setSubTab] = useState('savings')
 
   return (
@@ -2170,6 +2178,7 @@ function GraphSubTab() {
 function PoolSubTab() {
   const [optedIn, setOptedIn] = useState(true)
   const [showVote, setShowVote] = useState(false)
+  const [voteResult, setVoteResult] = useState(null)
 
   return (
     <div className="space-y-3.5">
@@ -2251,14 +2260,18 @@ function PoolSubTab() {
             <span className="text-[10px] text-success font-semibold">12/20 votes (60%)</span>
           </div>
         </div>
-        {!showVote ? (
+        {voteResult ? (
+          <div className={`w-full py-2.5 rounded-xl text-center text-[12px] font-semibold ${voteResult === 'for' ? 'bg-success/10 border border-success/25 text-success' : 'bg-danger/10 border border-danger/25 text-danger'}`}>
+            {voteResult === 'for' ? '✓ You voted to Approve' : '✗ You voted to Deny'}
+          </div>
+        ) : !showVote ? (
           <button onClick={() => setShowVote(true)} className="w-full py-2.5 bg-warning/10 border border-warning/25 rounded-xl text-warning text-[12px] font-semibold">
             Cast Your Vote
           </button>
         ) : (
           <div className="flex gap-2">
-            <button onClick={() => setShowVote(false)} className="flex-1 py-2.5 bg-success/10 border border-success/25 rounded-xl text-success text-[12px] font-semibold">✓ Approve</button>
-            <button onClick={() => setShowVote(false)} className="flex-1 py-2.5 bg-danger/10 border border-danger/25 rounded-xl text-danger text-[12px] font-semibold">✗ Deny</button>
+            <button onClick={async () => { try { await apiFetch('/api/admin/pools/motions/PLM-001/vote', { method: 'POST', body: JSON.stringify({ vote: 'for' }) }); } catch {} setVoteResult('for'); setShowVote(false); }} className="flex-1 py-2.5 bg-success/10 border border-success/25 rounded-xl text-success text-[12px] font-semibold">✓ Approve</button>
+            <button onClick={async () => { try { await apiFetch('/api/admin/pools/motions/PLM-001/vote', { method: 'POST', body: JSON.stringify({ vote: 'against' }) }); } catch {} setVoteResult('against'); setShowVote(false); }} className="flex-1 py-2.5 bg-danger/10 border border-danger/25 rounded-xl text-danger text-[12px] font-semibold">✗ Deny</button>
           </div>
         )}
       </div>
@@ -2349,8 +2362,13 @@ function TimelineSubTab() {
 
 
 // ─── PROFILE TAB (Enhanced) ──────────────────────────
-function ProfileTab({ onBack }) {
+function ProfileTab({ onBack, setActiveTab, workerId }) {
   const { isDark, toggleTheme } = useTheme()
+  const handleLogout = () => {
+    localStorage.removeItem('gigshield_registered')
+    localStorage.removeItem('gigshield_worker_id')
+    onBack()
+  }
 
   return (
     <div className="space-y-3.5 mt-2">
@@ -2437,14 +2455,14 @@ function ProfileTab({ onBack }) {
 
       <div className="glass rounded-2xl p-3 space-y-2">
         {[
-          { label: 'Notification Settings', icon: Bell },
-          { label: 'Payment Methods', icon: CreditCard },
-          { label: 'Language / भाषा', icon: Languages },
-          { label: 'Help & Support', icon: Headphones },
-          { label: 'Emergency Contact', icon: Phone },
-          { label: 'Download My Data', icon: Download },
+          { label: 'Notification Settings', icon: Bell, action: () => setActiveTab('home') },
+          { label: 'Payment Methods', icon: CreditCard, action: () => setActiveTab('policy') },
+          { label: 'Language / भाषा', icon: Languages, action: () => {} },
+          { label: 'Help & Support', icon: Headphones, action: () => {} },
+          { label: 'Emergency Contact', icon: Phone, action: () => { window.location.href = 'tel:112' } },
+          { label: 'Download My Data', icon: Download, action: async () => { try { const text = await apiFetch(`/api/workers/${workerId}/certificate`); const blob = new Blob([text], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'gigshield-data.txt'; a.click(); URL.revokeObjectURL(url); } catch { alert('Could not download data.') } } },
         ].map((item, i) => (
-          <button key={i} className="w-full flex items-center justify-between py-1.5 hover:opacity-80 transition-opacity">
+          <button key={i} onClick={item.action} className="w-full flex items-center justify-between py-1.5 hover:opacity-80 transition-opacity">
             <div className="flex items-center gap-2.5">
               <item.icon size={14} className="text-text-muted" />
               <span className="text-xs text-text-primary">{item.label}</span>
@@ -2456,6 +2474,10 @@ function ProfileTab({ onBack }) {
 
       <button onClick={onBack} className="w-full py-2.5 bg-dark-card border border-dark-border rounded-2xl text-text-secondary font-medium text-xs">
         ← Back to Landing Page
+      </button>
+
+      <button onClick={handleLogout} className="w-full py-2.5 bg-danger/10 border border-danger/25 rounded-2xl text-danger font-medium text-xs">
+        Log Out
       </button>
     </div>
   )

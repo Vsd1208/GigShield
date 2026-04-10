@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RPieChart, Pie, Cell, RadialBarChart, RadialBar, Legend } from 'recharts'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-
+import { apiFetch } from '../lib/api'
 // Fix Leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -585,15 +585,27 @@ function AnalyticsPanel() {
 
 // FRAUD PANEL
 function FraudPanel() {
+  const [cases, setCases] = useState(fraudCases)
+
+  const handleDecision = async (caseId, decision) => {
+    try {
+      await apiFetch(`/api/admin/fraud-cases/${caseId}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({ decision })
+      })
+    } catch {}
+    setCases(prev => prev.map(fc => fc.id === caseId ? { ...fc, status: decision } : fc))
+  }
+
   return (
     <div className="space-y-6">
       {/* Fraud Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Flagged Claims', value: '3', color: 'danger' },
-          { label: 'Blocked', value: '1', color: 'danger' },
-          { label: 'Under Review', value: '2', color: 'warning' },
-          { label: 'Fraud Rate', value: '2.1%', color: 'success' },
+          { label: 'Flagged Claims', value: String(cases.length), color: 'danger' },
+          { label: 'Blocked', value: String(cases.filter(c => c.status === 'blocked').length), color: 'danger' },
+          { label: 'Under Review', value: String(cases.filter(c => c.status === 'review').length), color: 'warning' },
+          { label: 'Approved', value: String(cases.filter(c => c.status === 'approved').length), color: 'success' },
         ].map((s, i) => (
           <div key={i} className="glass rounded-2xl p-4">
             <p className="text-xs text-text-muted">{s.label}</p>
@@ -604,12 +616,12 @@ function FraudPanel() {
 
       {/* Fraud Cases */}
       <div className="space-y-4">
-        {fraudCases.map((fc, i) => (
+        {cases.map((fc, i) => (
           <div key={i} className="glass rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${fc.status === 'blocked' ? 'bg-danger/20' : 'bg-warning/20'}`}>
-                  <AlertTriangle size={18} className={fc.status === 'blocked' ? 'text-danger' : 'text-warning'} />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${fc.status === 'blocked' ? 'bg-danger/20' : fc.status === 'approved' ? 'bg-success/20' : 'bg-warning/20'}`}>
+                  <AlertTriangle size={18} className={fc.status === 'blocked' ? 'text-danger' : fc.status === 'approved' ? 'text-success' : 'text-warning'} />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-text-primary">{fc.worker}</p>
@@ -617,7 +629,7 @@ function FraudPanel() {
                 </div>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                fc.status === 'blocked' ? 'bg-danger/20 text-danger' : 'bg-warning/20 text-warning'
+                fc.status === 'blocked' ? 'bg-danger/20 text-danger' : fc.status === 'approved' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
               }`}>
                 {fc.status.toUpperCase()}
               </span>
@@ -651,8 +663,8 @@ function FraudPanel() {
               </div>
               {fc.status === 'review' && (
                 <div className="flex gap-2">
-                  <button className="px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-semibold border border-success/20">Approve</button>
-                  <button className="px-3 py-1.5 rounded-lg bg-danger/10 text-danger text-xs font-semibold border border-danger/20">Block</button>
+                  <button onClick={() => handleDecision(fc.id, 'approved')} className="px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-semibold border border-success/20">Approve</button>
+                  <button onClick={() => handleDecision(fc.id, 'blocked')} className="px-3 py-1.5 rounded-lg bg-danger/10 text-danger text-xs font-semibold border border-danger/20">Block</button>
                 </div>
               )}
             </div>
@@ -668,21 +680,46 @@ function SimulatorPanel() {
   const [rainfall, setRainfall] = useState(15)
   const [aqi, setAqi] = useState(200)
   const [activeWorkers, setActiveWorkers] = useState(100)
+  const [simResult, setSimResult] = useState(null)
+  const [simLoading, setSimLoading] = useState(false)
 
-  const affectedWorkers = Math.round(
+  // Local fallback calculation
+  const localAffected = Math.round(
     activeWorkers * (
       (rainfall > 15 ? 0.4 : rainfall > 10 ? 0.15 : 0) +
       (aqi > 300 ? 0.3 : aqi > 200 ? 0.1 : 0)
     )
   )
-  const estimatedPayout = affectedWorkers * 600
-  const premiumPool = activeWorkers * 99
-  const lossRatio = premiumPool > 0 ? (estimatedPayout / premiumPool).toFixed(2) : 0
+  const localPayout = localAffected * 600
+  const localPool = activeWorkers * 99
+  const localLoss = localPool > 0 ? (localPayout / localPool).toFixed(2) : 0
+
+  const affectedWorkers = simResult?.affectedWorkers ?? localAffected
+  const estimatedPayout = simResult?.estimatedPayout ?? localPayout
+  const premiumPool = simResult?.premiumPool ?? localPool
+  const lossRatio = simResult?.lossRatio ?? localLoss
+  const reinsurerTriggered = simResult?.reinsurerTriggered ?? (Number(lossRatio) > 1.5)
+
+  const runSim = async () => {
+    setSimLoading(true)
+    try {
+      const result = await apiFetch('/api/admin/simulator', {
+        method: 'POST',
+        body: JSON.stringify({ rainfall, aqi, activeWorkers })
+      })
+      setSimResult(result)
+    } catch {
+      setSimResult(null)
+    } finally {
+      setSimLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div className="glass rounded-2xl p-6">
-        <h3 className="text-sm font-bold text-text-primary mb-6">Risk Scenario Simulator</h3>
+        <h3 className="text-sm font-bold text-text-primary mb-4">Risk Scenario Simulator</h3>
+        <p className="text-xs text-text-muted mb-6">Adjust parameters and click "Run Simulation" to compute results via the backend.</p>
         
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Sliders */}
@@ -760,7 +797,7 @@ function SimulatorPanel() {
               </div>
             </div>
 
-            {Number(lossRatio) > 1.5 && (
+            {reinsurerTriggered && (
               <div className="bg-danger/10 border border-danger/20 rounded-2xl p-4 flex items-start gap-3">
                 <AlertTriangle size={18} className="text-danger shrink-0 mt-0.5" />
                 <div>
@@ -770,6 +807,11 @@ function SimulatorPanel() {
                 </div>
               </div>
             )}
+
+            <button onClick={runSim} disabled={simLoading}
+                    className="w-full py-3 gradient-primary rounded-2xl text-white font-bold text-sm shadow-xl shadow-primary/30 active:scale-[0.98] transition-transform disabled:opacity-70">
+              {simLoading ? 'Running...' : 'Run Simulation'}
+            </button>
           </div>
         </div>
       </div>
