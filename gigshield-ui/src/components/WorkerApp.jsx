@@ -378,16 +378,8 @@ export default function WorkerApp({ onBack }) {
       theme: { color: "#A45B33" }
     };
 
-    if (isDemoCheckout) {
-      setTimeout(() => {
-        options.handler({
-          razorpay_payment_id: "pay_mock_" + Date.now(),
-          razorpay_order_id: paymentSession?.order?.id,
-          razorpay_signature: "mock_signature_no_key"
-        });
-      }, 1500);
-      return;
-    }
+    //Disabled demo mode completly
+    
 
     const isLoaded = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
     if (!isLoaded) {
