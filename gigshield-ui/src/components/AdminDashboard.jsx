@@ -5,11 +5,7 @@ import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Cartesia
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { apiFetch } from '../lib/api'
-import PricingPanel from './admin/PricingPanel'
-import PriceGraph from './graphs/PriceGraph'
-import FraudGraph from './graphs/FraudGraph'
-import RiskGraph from './graphs/RiskGraph'
-import ClaimGraph from './graphs/ClaimGraph'
+import MLDashboardPanel from './admin/PricingPanel'
 // Fix Leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -25,6 +21,7 @@ const sidebarItems = [
   { id: 'analytics', label: 'Analytics', icon: TrendingUp },
   { id: 'fraud', label: 'Fraud Console', icon: AlertTriangle },
   { id: 'antispoofing', label: 'Anti-Spoofing', icon: ShieldAlert },
+  { id: 'ml', label: 'ML Insights', icon: Target },
   { id: 'simulator', label: 'Risk Simulator', icon: Sliders },
   { id: 'forecast', label: '7-Day Forecast', icon: Calendar },
   { id: 'loyalty', label: 'Loyalty Monitor', icon: Award },
@@ -181,7 +178,8 @@ export default function AdminDashboard({ onBack }) {
           {activeTab === 'live' && <LiveFeedPanel />}
           {activeTab === 'analytics' && <AnalyticsPanel />}
           {activeTab === 'fraud' && <FraudPanel />}
-          {activeTab === 'simulator' && <PricingPanel />}
+          {activeTab === 'ml' && <MLDashboardPanel />}
+          {activeTab === 'simulator' && <SimulatorPanel />}
           {activeTab === 'forecast' && <ForecastPanel />}
           {activeTab === 'antispoofing' && <AntiSpoofingPanel />}
           {activeTab === 'loyalty' && <LoyaltyPanel />}
@@ -390,10 +388,19 @@ function MapPanel() {
 
     mapInstanceRef.current = map
 
-    // Force resize after mount
-    setTimeout(() => map.invalidateSize(), 100)
+    // Fix map rendering by invalidating size dynamically on resize
+    const resizeObserver = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize()
+      }
+    })
+    
+    if (mapRef.current) {
+      resizeObserver.observe(mapRef.current)
+    }
 
     return () => {
+      resizeObserver.disconnect()
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null

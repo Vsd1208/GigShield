@@ -16,7 +16,7 @@ export function sendJson(res, statusCode, payload) {
     "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type"
   });
-  res.end(JSON.stringify(payload, null, 2));
+  res.end(JSON.stringify(payload));
 }
 
 export function sendText(res, statusCode, text, contentType = "text/plain; charset=utf-8") {
