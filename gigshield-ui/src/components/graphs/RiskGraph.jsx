@@ -1,34 +1,39 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload || !payload.length) return null;
-  return (
-    <div className="bg-[#1e1b2e] border border-[#2d2550] rounded-xl p-3 text-xs shadow-xl">
-      <p className="text-[#f1f5f9] font-semibold mb-1">{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color || '#27ae60' }} className="font-medium">
-          {p.name}: {p.value}
-        </p>
-      ))}
-    </div>
-  );
-};
+const RiskGraph = ({ data = [] }) => {
+  const processedData = Array.isArray(data) && data.length > 0 ? data : [
+    { name: 'Mon', risk: 0.42, traffic: 35 },
+    { name: 'Tue', risk: 0.48, traffic: 42 },
+    { name: 'Wed', risk: 0.45, traffic: 38 },
+    { name: 'Thu', risk: 0.52, traffic: 48 },
+    { name: 'Fri', risk: 0.58, traffic: 55 },
+    { name: 'Sat', risk: 0.62, traffic: 62 },
+    { name: 'Sun', risk: 0.55, traffic: 58 }
+  ];
 
-const RiskGraph = ({ data }) => {
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload?.[0]) {
+      return (
+        <div className="bg-gray-800 text-white p-2 rounded shadow-lg text-sm">
+          <p className="font-semibold">{payload[0].payload.name}</p>
+          <p className="text-green-400">Risk Score: {(payload[0].value * 100).toFixed(1)}%</p>
+          {payload[0].payload.traffic && (
+            <p className="text-yellow-400">Traffic: {payload[0].payload.traffic}</p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={data}>
-        <defs>
-          <linearGradient id="colorRisk" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#27ae60" stopOpacity={0.4}/>
-            <stop offset="95%" stopColor="#27ae60" stopOpacity={0}/>
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(45,37,80,0.5)" vertical={false} />
-        <XAxis dataKey="name" tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: '#7C72A0', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <Tooltip content={<CustomTooltip />} />
-        <Area type="monotone" dataKey="risk" stroke="#27ae60" fillOpacity={1} fill="url(#colorRisk)" name="Risk Score" />
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip />
+        <Area type="monotone" dataKey="risk" stroke="#82ca9d" fill="#82ca9d" />
       </AreaChart>
     </ResponsiveContainer>
   );
