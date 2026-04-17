@@ -406,77 +406,83 @@ export default function WorkerApp({ onBack }) {
     const selectedPlanId = planIds[selectedPlan] || 'pro';
     const isDemoCheckout = paymentSession?.checkout?.demoMode || paymentSession?.checkout?.key === "rzp_test_gigshield_demo";
 
-    const options = {
-      key: paymentSession?.checkout?.key || "rzp_test_1234567890abcd",
-      amount: paymentSession?.order?.amount || 0,
-      currency: paymentSession?.order?.currency || "INR",
-      name: paymentSession?.checkout?.name || "GigShield",
-      description: paymentSession?.checkout?.description || "Premium",
-      order_id: paymentSession?.order?.id,
-      prefill: {
-        name: profile?.name || "Partner",
-        contact: profile?.mobile || mobile || "9999999999",
-        method: "upi",
-        vpa: paymentUpiId || profile?.upiId || "success@razorpay"
-      },
-      handler: async function (response) {
-        try {
-          const paymentResult = await apiFetch(`/api/workers/${workerId}/payments/verify`, {
-            method: 'POST',
-            body: JSON.stringify({
-              orderId: paymentSession?.order?.id,
-              planId: selectedPlanId,
-              autoRenew: mandateConsent,
-              upiId: paymentUpiId || profile?.upiId || paymentSession?.order?.upiId,
-              razorpay_order_id: response.razorpay_order_id || paymentSession?.order?.id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature
-            })
+    const verifyPayment = async (response) => {
+      try {
+        const paymentResult = await apiFetch(`/api/workers/${workerId}/payments/verify`, {
+          method: 'POST',
+          body: JSON.stringify({
+            orderId: paymentSession?.order?.id,
+            planId: selectedPlanId,
+            autoRenew: mandateConsent,
+            upiId: paymentUpiId || profile?.upiId || paymentSession?.order?.upiId,
+            razorpay_order_id: response.razorpay_order_id || paymentSession?.order?.id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
           })
-
-          setPaymentMandate(paymentResult.mandate ?? null)
-          setAutoRenew(Boolean(paymentResult.policy.autoRenew))
-          setPaymentSuccess({
-            amount: paymentResult.pricing.finalPremium,
-            referenceId: paymentResult.payment.referenceId,
-            upiId: paymentResult.payment.upiId,
-            policyId: paymentResult.policy.id
-          })
-          setPaymentStage('plans')
-          setPaymentSession(null)
-          setShowPurchase(false)
-          setActiveTab('policy')
-        } catch (err) {
-          setPaymentError(err.message || 'Payment verification failed.')
-        } finally {
-          setPaymentLoading(false)
-        }
-      },
-      modal: {
-        ondismiss: function () {
-          setPaymentLoading(false)
-        }
-      },
-      theme: { color: "#A45B33" }
+        })
+        setPaymentMandate(paymentResult.mandate ?? null)
+        setAutoRenew(Boolean(paymentResult.policy.autoRenew))
+        setPaymentSuccess({
+          amount: paymentResult.pricing.finalPremium,
+          referenceId: paymentResult.payment.referenceId,
+          upiId: paymentResult.payment.upiId,
+          policyId: paymentResult.policy.id
+        })
+        setPaymentStage('plans')
+        setPaymentSession(null)
+        setShowPurchase(false)
+        setActiveTab('policy')
+      } catch (err) {
+        setPaymentError(err.message || 'Payment verification failed.')
+      } finally {
+        setPaymentLoading(false)
+      }
     };
 
-    if (isDemoCheckout) {
-      setTimeout(() => {
-        options.handler({
-          razorpay_payment_id: "pay_mock_" + Date.now(),
-          razorpay_order_id: paymentSession?.order?.id,
-          razorpay_signature: "mock_signature_no_key"
-        });
-      }, 1500);
-      return;
-    }
-
+    // Always load and open Razorpay checkout for real sandbox experience
     const isLoaded = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
     if (!isLoaded) {
-      setPaymentError("Could not load Razorpay. Check your connection.");
+      setPaymentError("Could not load Razorpay. Check your internet connection.");
       setPaymentLoading(false);
       return;
     }
+
+    // Build options — use correct Razorpay public test key so modal renders
+    const rzpKey = isDemoCheckout
+      ? "rzp_test_HeE3WdCiLWB5k0"
+      : (paymentSession?.checkout?.key || "rzp_test_HeE3WdCiLWB5k0");
+
+    const options = {
+      key: rzpKey,
+      amount: paymentSession?.order?.amount || 9900,
+      currency: paymentSession?.order?.currency || "INR",
+      name: "GigShield",
+      description: `${isDemoCheckout ? '[Demo] ' : ''}${paymentSession?.checkout?.description || 'Weekly Premium'}`,
+      // Only pass order_id for real (non-demo) orders
+      ...(isDemoCheckout ? {} : { order_id: paymentSession?.order?.id }),
+      prefill: {
+        name: profile?.name || "Partner",
+        contact: String(profile?.mobile || mobile || "9999999999").replace(/\D/g, '').slice(-10),
+        method: "upi",
+        vpa: paymentUpiId || profile?.upiId || "success@razorpay"
+      },
+      config: {
+        display: {
+          // Show all payment methods so user can choose
+          hide: [],
+          preferences: { show_default_blocks: true }
+        }
+      },
+      handler: verifyPayment,
+      modal: {
+        ondismiss: function () {
+          setPaymentLoading(false)
+        },
+        escape: true,
+        animation: true
+      },
+      theme: { color: "#A45B33" }
+    };
 
     try {
       const rzp = new window.Razorpay(options);

@@ -23,8 +23,13 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
-        changeOrigin: true
+        target: 'http://localhost:4001',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.warn('[vite-proxy] Backend error:', err.message)
+          })
+        }
       }
     }
   }
