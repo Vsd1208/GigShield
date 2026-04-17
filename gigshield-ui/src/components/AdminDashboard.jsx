@@ -5,6 +5,11 @@ import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Cartesia
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { apiFetch } from '../lib/api'
+import PricingPanel from './admin/PricingPanel'
+import PriceGraph from './graphs/PriceGraph'
+import FraudGraph from './graphs/FraudGraph'
+import RiskGraph from './graphs/RiskGraph'
+import ClaimGraph from './graphs/ClaimGraph'
 // Fix Leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -176,7 +181,7 @@ export default function AdminDashboard({ onBack }) {
           {activeTab === 'live' && <LiveFeedPanel />}
           {activeTab === 'analytics' && <AnalyticsPanel />}
           {activeTab === 'fraud' && <FraudPanel />}
-          {activeTab === 'simulator' && <SimulatorPanel />}
+          {activeTab === 'simulator' && <PricingPanel />}
           {activeTab === 'forecast' && <ForecastPanel />}
           {activeTab === 'antispoofing' && <AntiSpoofingPanel />}
           {activeTab === 'loyalty' && <LoyaltyPanel />}

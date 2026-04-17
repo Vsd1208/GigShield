@@ -44,6 +44,7 @@ import {
 } from "./services/domain.js";
 import { getDatabaseState, persistStore } from "./db.js";
 import { getWebPushPublicKey } from "./services/integrations.js";
+import mlService from "./services/mlService.js";
 import { store } from "./store.js";
 import { createError, readJson, sendBuffer, sendJson, sendText } from "./utils/http.js";
 
@@ -242,7 +243,11 @@ export async function handleRequest(req, res) {
     ["POST", "/api/system/fraud/evaluate", async () => {
       const body = await readJson(req);
       return evaluateFraud(body.workerId, body.eventId);
-    }]
+    }],
+    ["POST", "/api/ml/fraud", async () => mlService.getPrediction('fraud', await readJson(req))],
+    ["POST", "/api/ml/price", async () => mlService.getPrediction('price', await readJson(req))],
+    ["POST", "/api/ml/risk", async () => mlService.getPrediction('risk', await readJson(req))],
+    ["POST", "/api/ml/claim", async () => mlService.getPrediction('claim', await readJson(req))]
   ];
 
   for (const [method, pattern, handler] of routes) {
